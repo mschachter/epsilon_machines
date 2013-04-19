@@ -8,7 +8,10 @@ class BinaryHMM(object):
         self.T0 = T0
         self.T1 = T1
         self.T = T0 + T1
-        self.initial_state_dist = initial_state_dist
+        self.initial_state_dist = np.array(initial_state_dist)
+        #compute stationary distribution
+        Tinf = np.linalg.matrix_power(self.T, int(500))
+        self.stationary_distribution = Tinf[0, :]
 
     def simulate(self, L=10000):
         #generate an initial state
@@ -33,6 +36,4 @@ class GoldenMean(BinaryHMM):
     def __init__(self):
         T0 = np.array([[0.0, 0.5], [0.0, 0.0]])
         T1 = np.array([[0.5, 0.0], [1.0, 0.0]])
-        BinaryHMM.__init__(T0, T1, 2, [0.5, 0.5])
-
-
+        BinaryHMM.__init__(self, T0, T1, 2, [0.5, 0.5])
