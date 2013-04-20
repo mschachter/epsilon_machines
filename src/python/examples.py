@@ -1,3 +1,4 @@
+from epsilon_machine import BinaryParseTree
 from process import *
 from information import *
 
@@ -26,3 +27,7 @@ def test_golden_mean():
 
         Lvals = range(1, 8)
         plot_process_info(gm, Lvals)
+
+    bpt = BinaryParseTree(5, 2, 4)
+    bpt.parse(gstr)
+    bpt.show()
