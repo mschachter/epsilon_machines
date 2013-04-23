@@ -37,3 +37,17 @@ class GoldenMean(BinaryHMM):
         T0 = np.array([[0.0, 0.5], [0.0, 0.0]])
         T1 = np.array([[0.5, 0.0], [1.0, 0.0]])
         BinaryHMM.__init__(self, T0, T1, 2, [0.5, 0.5])
+
+class BiasedCoin(object):
+
+    def __init__(self, p=0.5):
+        """ p = probability of heads """
+        self.p = p
+
+    def simulate(self, L=10000):
+        samps = np.zeros([L])
+        for k in range(L):
+            r = np.random.rand()
+            if r < self.p:
+                samps[k] = 1
+        return samps

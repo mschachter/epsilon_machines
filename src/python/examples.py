@@ -7,7 +7,7 @@ def test_golden_mean():
 
     gm = GoldenMean()
 
-    gstr = gm.simulate(100000)
+    gstr = gm.simulate(500000)
 
     for L in range(2, 5):
         expected_words = get_all_binary_words(L)
@@ -28,6 +28,17 @@ def test_golden_mean():
         Lvals = range(1, 8)
         plot_process_info(gm, Lvals)
 
-    bpt = BinaryParseTree(5, 2, 4)
+    bpt = BinaryParseTree(6, 2, 4)
     bpt.parse(gstr)
     bpt.show()
+
+def test_biasedcoin(p=0.5):
+
+    bc = BiasedCoin(p=p)
+
+    bstr = bc.simulate(100000)
+
+    bpt = BinaryParseTree(5, 2, 4)
+    bpt.parse(bstr)
+    bpt.show()
+
