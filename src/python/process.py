@@ -38,6 +38,15 @@ class GoldenMean(BinaryHMM):
         T1 = np.array([[0.5, 0.0], [1.0, 0.0]])
         BinaryHMM.__init__(self, T0, T1, 2, [0.5, 0.5])
 
+
+class EvenProcess(BinaryHMM):
+
+    def __init__(self):
+        T0 = np.array([[0.5, 0.0], [0.0, 0.0]])
+        T1 = np.array([[0.0, 0.5], [1.0, 0.0]])
+        BinaryHMM.__init__(self, T0, T1, 2, [0.5, 0.5])
+
+
 class BiasedCoin(object):
 
     def __init__(self, p=0.5):
