@@ -60,3 +60,23 @@ class BiasedCoin(object):
             if r < self.p:
                 samps[k] = 1
         return samps
+
+
+class RRXOR(object):
+
+    def __init__(self):
+        pass
+
+    def simulate(self, L=10000):
+        samps = np.zeros([L], 'int')
+        for k in range(L):
+            if (k+1) % 3 == 0:
+                x = (samps[k-1] + samps[k-2]) % 2
+            else:
+                r = np.random.rand()
+                if r < 0.5:
+                    x = 0
+                else:
+                    x = 1
+            samps[k] = x
+        return samps

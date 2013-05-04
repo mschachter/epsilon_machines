@@ -57,3 +57,12 @@ def get_evenprocess_tree(dthresh=1e-1, D=5, M=2, L=3):
     bpt = BinaryParseTree(D, M, L, dthresh=dthresh)
     bpt.parse(estr)
     return bpt
+
+
+def get_rrxor_tree():
+
+    rr = RRXOR()
+    rstr = rr.simulate(1000000*3)
+    bpt = BinaryParseTree(3, 2, 1)
+    bpt.parse(rstr)
+    return bpt
