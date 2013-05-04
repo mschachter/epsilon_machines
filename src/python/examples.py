@@ -66,3 +66,24 @@ def get_rrxor_tree():
     bpt = BinaryParseTree(3, 2, 1)
     bpt.parse(rstr)
     return bpt
+
+def get_gee_tree():
+
+    wdist = {
+        '00100':1.0/8.0,
+        '00110':1.0/16.0,
+        '00111':1.0/16.0,
+        '01001':1.0/8.0,
+        '01100':1.0/16.0,
+        '01110':1.0/32.0,
+        '01111':1.0/32.0,
+        '10010':1.0/8.0,
+        '10011':1.0/8.0,
+        '11001':1.0/8.0,
+        '11110':1.0/32.0,
+        '11111':1.0/32.0
+    }
+
+    bpt = BinaryParseTree(5, 2, 2)
+    bpt.parse_from_word_distribution(wdist)
+    return bpt

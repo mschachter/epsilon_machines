@@ -19,7 +19,7 @@ class BinaryParseTree(object):
 
     def construct_tree(self):
         self.g = nx.DiGraph()
-        self.g.add_node(0)
+        self.g.add_node(0, depth=0)
 
         self.add_child_nodes(self.g, 0, 0, self.D)
 
@@ -29,34 +29,35 @@ class BinaryParseTree(object):
             return
 
         zero_node = len(g.nodes())
-        g.add_node(zero_node, count=0)
+        g.add_node(zero_node, count=0, depth=current_depth+1)
         g.add_edge(node, zero_node, label=0)
         self.add_child_nodes(g, zero_node, current_depth+1, max_depth)
 
         one_node = len(g.nodes())
-        g.add_node(one_node, count=0)
+        g.add_node(one_node, count=0, depth=current_depth+1)
         g.add_edge(node, one_node, label=1)
         self.add_child_nodes(g, one_node, current_depth+1, max_depth)
 
     def parse(self, process_string):
 
-        #build up word counts
-        M = len(process_string)
-        nwords = M - self.D + 1
-        for t in range(self.D, M+1):
-            word = process_string[t-self.D:t]
-            self.update_count(self.g, word, 0)
-        self.g.node[0]['count'] = nwords
+        if process_string is not None:
+            #build up word counts
+            M = len(process_string)
+            nwords = M - self.D + 1
+            for t in range(self.D, M+1):
+                word = process_string[t-self.D:t]
+                self.update_count(self.g, word, 0)
+            self.g.node[0]['count'] = nwords
+
+            #normalize word counts to probabilities
+            for parent,child in self.g.edges():
+                self.g.node[child]['probability'] = float(self.g.node[child]['count']) / nwords
 
         #compute the transition probabilites (edges)
         self.compute_transition_probability(self.g, 0)
 
-        #normalize word counts to probabilities
-        for parent,child in self.g.edges():
-            self.g.node[child]['p'] = float(self.g.node[child]['count']) / nwords
-
         #prune graph
-        self.g.remove_nodes_from([n for n in self.g.nodes() if n != 0 and self.g.node[n]['count'] == 0])
+        self.g.remove_nodes_from([n for n in self.g.nodes() if n != 0 and self.g.node[n]['probability'] == 0])
 
         #find morphs
         self.morphs = self.find_morphs()
@@ -64,14 +65,67 @@ class BinaryParseTree(object):
         #build causal state graph
         self.causal_state_graph = self.build_causal_state_graph()
 
+    def parse_from_word_distribution(self, word_dist):
+
+        #initialize word probabilities to zero
+        for n in self.g.nodes():
+            self.g.node[n]['probability'] = 0.0
+
+        #set leaf probabilities
+        for word,pword in word_dist.iteritems():
+            wlist = [int(w) for w in word]
+            node = self.iterate_to_word_node(self.g, 0, wlist)
+            self.g.node[node]['probability'] = pword
+
+        #compute node probabilities from bottom up
+        for d in range(self.D-1, -1, -1):
+            for node in self.get_nodes_at_depth(self.g, d):
+                pchildren = [self.g.node[n]['probability'] for n in self.g.successors(node)]
+                self.g.node[node]['probability'] = np.sum(pchildren)
+
+        #parse tree as usual
+        self.parse(None)
+
+    def get_nodes_at_depth(self, g, depth):
+        return [n for n in g.nodes() if g.node[n]['depth'] == depth]
+
+    def iterate_to_word_node(self, g, node, word):
+
+        children = g.successors(node)
+        #print 'node=%d, word=%s, len(children)=%d' % (node, ''.join(['%d' % w for w in word]), len(children))
+        if len(children) == 0:
+            return None
+
+        w = word[0]
+        next_nodes = [n for n in children if g[node][n]['label'] == w]
+        if len(next_nodes) != 1:
+            print 'Something is wrong! Zero or multiple child nodes for letter %d from node %d' % (w, node)
+            return None
+
+        next_node = next_nodes[0]
+        #print 'next_node=%d' % next_node
+        if len(word) == 1:
+            return next_node
+        else:
+            return self.iterate_to_word_node(g, next_node, word[1:])
+
 
     def compute_transition_probability(self, g, node):
         for child in g.successors(node):
-            d = float(g.node[node]['count'])
-            if d > 0.0:
-                g[node][child]['probability'] = float(g.node[child]['count']) / d
+            if 'probability' in g.node[node] and 'probability' in g.node[child]:
+                pparent = g.node[node]['probability']
+                pchild = g.node[child]['probability']
+                ptransition = 0.0
+                if pparent > 0.0:
+                    ptransition = pchild / pparent
+                g[node][child]['probability'] = ptransition
+
             else:
-                g[node][child]['probability'] = 0.0
+                d = float(g.node[node]['count'])
+                if d > 0.0:
+                    g[node][child]['probability'] = float(g.node[child]['count']) / d
+                else:
+                    g[node][child]['probability'] = 0.0
             self.compute_transition_probability(g, child)
 
     def update_count(self, g, word, node):
@@ -116,7 +170,7 @@ class BinaryParseTree(object):
                 sg[s1][s2]['probabilities'].append(p)
 
         for s1,s2 in sg.edges():
-            sg[s1][s2]['p'] = np.mean(sg[s1][s2]['probabilities'])
+            sg[s1][s2]['probability'] = np.mean(sg[s1][s2]['probabilities'])
 
         #find transition matrix
         N = len(sg.nodes())
@@ -126,7 +180,7 @@ class BinaryParseTree(object):
         for k,s1 in enumerate(sorted_states):
             for j,s2 in enumerate(sorted_states):
                 if (s1,s2) in edges:
-                    T[k, j] = sg[s1][s2]['p']
+                    T[k, j] = sg[s1][s2]['probability']
 
         self.causal_transition_states = sorted_states
         self.causal_transition_probability = T
@@ -231,10 +285,10 @@ class BinaryParseTree(object):
         g = pdata['g']
         self.plot_tree(g)
 
-    def show(self):
+    def show(self, show_probability=False):
         plt.figure()
         plt.subplots_adjust(left=0.01, right=0.99, top=0.99, bottom=0.01)
-        self.plot_tree(self.g)
+        self.plot_tree(self.g, show_probability=show_probability)
         plt.figure()
         self.plot_causal_state(self.causal_state_graph)
 
@@ -258,7 +312,7 @@ class BinaryParseTree(object):
                 if show_count:
                     nlabels[n] = g.node[n]['count']
                 if show_probability:
-                    nlabels[n] = '%0.2f' % g.node[n]['p']
+                    nlabels[n] = '%0.2f' % g.node[n]['probability']
                 if show_node_num:
                     nlabels[n] = '%s' % str(n)
 
@@ -270,7 +324,7 @@ class BinaryParseTree(object):
     def plot_causal_state(self, g):
         elabels = dict()
         for parent,child in g.edges():
-            elabels[(parent,child)] = '%0.2f' % (g[parent][child]['p'])
+            elabels[(parent,child)] = '%0.2f' % (g[parent][child]['probability'])
 
         nlabels = dict()
         for n in g.nodes():
