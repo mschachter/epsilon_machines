@@ -50,8 +50,8 @@ class BinaryParseTree(object):
             self.g.node[0]['count'] = nwords
 
             #normalize word counts to probabilities
-            for parent,child in self.g.edges():
-                self.g.node[child]['probability'] = float(self.g.node[child]['count']) / nwords
+            for n in self.g.nodes():
+                self.g.node[n]['probability'] = float(self.g.node[n]['count']) / nwords
 
         #compute the transition probabilites (edges)
         self.compute_transition_probability(self.g, 0)
@@ -66,6 +66,10 @@ class BinaryParseTree(object):
         self.causal_state_graph = self.build_causal_state_graph()
 
     def parse_from_word_distribution(self, word_dist):
+
+        psum = np.sum(word_dist.values())
+        if psum - 1.0 > 1e-6:
+            print 'Word distribution does not sum to 1! sum=%f' % psum
 
         #initialize word probabilities to zero
         for n in self.g.nodes():
@@ -158,32 +162,51 @@ class BinaryParseTree(object):
 
         sg = nx.DiGraph()
         for causal_state,morph in self.morphs.iteritems():
-            sg.add_node(causal_state)
+            sg.add_node(causal_state, transition_count=0)
 
         for n1,n2 in self.g.edges():
             if 'causal_state' in self.g.node[n1] and 'causal_state' in self.g.node[n2]:
                 s1 = self.g.node[n1]['causal_state']
                 s2 = self.g.node[n2]['causal_state']
+                sg.node[s1]['transition_count'] += 1
+
                 p = self.g[n1][n2]['probability']
+                l = self.g[n1][n2]['label']
                 if s2 not in sg[s1]:
-                    sg.add_edge(s1, s2, probabilities=list())
+                    sg.add_edge(s1, s2, probabilities=list(), labels=list())
                 sg[s1][s2]['probabilities'].append(p)
+                sg[s1][s2]['labels'].append(l)
 
         for s1,s2 in sg.edges():
-            sg[s1][s2]['probability'] = np.mean(sg[s1][s2]['probabilities'])
+            #sg[s1][s2]['probability'] = np.mean(sg[s1][s2]['probabilities'])
+            cnt = len(sg[s1][s2]['probabilities'])
+            lbls = np.unique(sg[s1][s2]['probabilities'])
+            if len(lbls) > 1:
+                print 'Multiple labels found between causal states %s and %s' % (s1, s2)
+            sg[s1][s2]['probability'] = cnt / float(sg.node[s1]['transition_count'])
+            sg[s1][s2]['label'] = lbls[0]
 
         #find transition matrix
         N = len(sg.nodes())
         T = np.zeros([N, N])
+        T0 = np.zeros([N, N])
+        T1 = np.zeros([N, N])
         edges = sg.edges()
         sorted_states = sorted(sg.nodes())
         for k,s1 in enumerate(sorted_states):
             for j,s2 in enumerate(sorted_states):
                 if (s1,s2) in edges:
                     T[k, j] = sg[s1][s2]['probability']
+                    l = sg[s1][s2]['label']
+                    if int(l) == 0:
+                        T0[k, j] = sg[s1][s2]['probability']
+                    else:
+                        T1[k, j] = sg[s1][s2]['probability']
+
 
         self.causal_transition_states = sorted_states
         self.causal_transition_probability = T
+        self.emission_transition_probability = [T0, T1]
 
         return sg
 
@@ -201,6 +224,8 @@ class BinaryParseTree(object):
 
         w1 = self.get_all_word_probabilities(g1)
         w2 = self.get_all_word_probabilities(g2)
+        if len(w1) != len(w2):
+            return np.inf
 
         #compute symmetric KL distance between word distributions
         common_words = np.intersect1d(w1.keys(), w2.keys())
@@ -305,7 +330,7 @@ class BinaryParseTree(object):
         nlabels = dict()
         for n in g.nodes():
 
-            if 'causal_state' in g.node[n]:
+            if 'causal_state' in g.node[n] and not show_probability:
                 nlabels[n] = g.node[n]['causal_state']
             else:
                 nlabels[n] = ''

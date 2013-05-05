@@ -67,7 +67,7 @@ def get_rrxor_tree():
     bpt.parse(rstr)
     return bpt
 
-def get_gee_tree():
+def get_gee_tree(dthresh=1e-3):
 
     wdist = {
         '00100':1.0/8.0,
@@ -80,10 +80,11 @@ def get_gee_tree():
         '10010':1.0/8.0,
         '10011':1.0/8.0,
         '11001':1.0/8.0,
+        '11100':1.0/16.0,
         '11110':1.0/32.0,
         '11111':1.0/32.0
     }
 
-    bpt = BinaryParseTree(5, 2, 2)
+    bpt = BinaryParseTree(5, 2, 2, dthresh=dthresh)
     bpt.parse_from_word_distribution(wdist)
     return bpt
